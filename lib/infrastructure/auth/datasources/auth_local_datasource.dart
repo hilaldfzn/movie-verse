@@ -1,10 +1,9 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:get_it/get_it.dart';
 import '../../../core/error/exceptions.dart';
 import '../models/user_model.dart';
 import '../models/profile_model.dart';
+import '../../core/storage/in_memory_storage.dart';
 
 abstract class AuthLocalDataSource {
   Future<UserModel?> getCachedUser();
@@ -18,52 +17,78 @@ abstract class AuthLocalDataSource {
 
 class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   final SharedPreferences sharedPreferences;
-  final Database database;
+  final InMemoryStorage storage;
 
   static const String cachedUserKey = 'CACHED_USER';
   static const String selectedProfileKey = 'SELECTED_PROFILE';
 
-  AuthLocalDataSourceImpl(this.sharedPreferences) : database = GetIt.instance<Database>();
+  AuthLocalDataSourceImpl({
+    required this.sharedPreferences,
+    required this.storage,
+  });
 
   @override
   Future<UserModel?> getCachedUser() async {
-    final jsonString = sharedPreferences.getString(cachedUserKey);
-    if (jsonString != null) {
-      return UserModel.fromJson(json.decode(jsonString));
+    try {
+      final jsonString = sharedPreferences.getString(cachedUserKey);
+      if (jsonString != null) {
+        final user = UserModel.fromJson(json.decode(jsonString));
+        print('👤 Retrieved cached user: ${user.username}');
+        return user;
+      }
+      return null;
+    } catch (e) {
+      print('❌ Failed to get cached user: $e');
+      throw CacheException('Failed to get cached user: $e');
     }
-    return null;
   }
 
   @override
   Future<void> cacheUser(UserModel user) async {
-    await sharedPreferences.setString(
-      cachedUserKey,
-      json.encode(user.toJson()),
-    );
+    try {
+      await sharedPreferences.setString(
+        cachedUserKey,
+        json.encode(user.toJson()),
+      );
+      print('💾 User cached: ${user.username}');
+    } catch (e) {
+      print('❌ Failed to cache user: $e');
+      throw CacheException('Failed to cache user: $e');
+    }
   }
 
   @override
   Future<void> clearUser() async {
-    await sharedPreferences.remove(cachedUserKey);
-    await sharedPreferences.remove(selectedProfileKey);
+    try {
+      await sharedPreferences.remove(cachedUserKey);
+      await sharedPreferences.remove(selectedProfileKey);
+      print('🧹 User data cleared');
+    } catch (e) {
+      print('❌ Failed to clear user: $e');
+      throw CacheException('Failed to clear user: $e');
+    }
   }
 
   @override
   Future<ProfileModel> createProfile(ProfileModel profile) async {
     try {
-      final id = await database.insert(
-        'profiles',
-        profile.toJson()..remove('id'),
+      print('➕ Creating profile: ${profile.name}');
+      
+      final createdProfile = await storage.createProfile(
+        profile.name,
+        profile.avatar,
+        profile.userId,
       );
       
       return ProfileModel(
-        id: id,
-        name: profile.name,
-        avatar: profile.avatar,
-        userId: profile.userId,
-        createdAt: profile.createdAt,
+        id: createdProfile.id,
+        name: createdProfile.name,
+        avatar: createdProfile.avatar,
+        userId: createdProfile.userId,
+        createdAt: createdProfile.createdAt,
       );
     } catch (e) {
+      print('❌ Failed to create profile: $e');
       throw CacheException('Failed to create profile: $e');
     }
   }
@@ -71,40 +96,59 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   @override
   Future<List<ProfileModel>> getProfiles(String userId) async {
     try {
-      final List<Map<String, dynamic>> maps = await database.query(
-        'profiles',
-        where: 'userId = ?',
-        whereArgs: [userId],
-      );
-
-      return maps.map((map) => ProfileModel.fromJson(map)).toList();
+      print('📋 Getting profiles for user: $userId');
+      
+      final profiles = await storage.getProfiles(userId);
+      
+      return profiles.map((profile) => ProfileModel(
+        id: profile.id,
+        name: profile.name,
+        avatar: profile.avatar,
+        userId: profile.userId,
+        createdAt: profile.createdAt,
+      )).toList();
     } catch (e) {
+      print('❌ Failed to get profiles: $e');
       throw CacheException('Failed to get profiles: $e');
     }
   }
 
   @override
   Future<void> selectProfile(int profileId) async {
-    await sharedPreferences.setInt(selectedProfileKey, profileId);
+    try {
+      await sharedPreferences.setInt(selectedProfileKey, profileId);
+      print('✅ Profile selected: $profileId');
+    } catch (e) {
+      print('❌ Failed to select profile: $e');
+      throw CacheException('Failed to select profile: $e');
+    }
   }
 
   @override
   Future<ProfileModel?> getCurrentProfile() async {
-    final profileId = sharedPreferences.getInt(selectedProfileKey);
-    if (profileId == null) return null;
-
     try {
-      final List<Map<String, dynamic>> maps = await database.query(
-        'profiles',
-        where: 'id = ?',
-        whereArgs: [profileId],
-      );
-
-      if (maps.isNotEmpty) {
-        return ProfileModel.fromJson(maps.first);
+      final profileId = sharedPreferences.getInt(selectedProfileKey);
+      if (profileId == null) {
+        print('ℹ️ No profile selected');
+        return null;
       }
+
+      final profile = await storage.getProfileById(profileId);
+      if (profile != null) {
+        print('👤 Current profile: ${profile.name}');
+        return ProfileModel(
+          id: profile.id,
+          name: profile.name,
+          avatar: profile.avatar,
+          userId: profile.userId,
+          createdAt: profile.createdAt,
+        );
+      }
+      
+      print('⚠️ Selected profile not found');
       return null;
     } catch (e) {
+      print('❌ Failed to get current profile: $e');
       throw CacheException('Failed to get current profile: $e');
     }
   }

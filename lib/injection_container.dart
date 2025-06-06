@@ -1,12 +1,10 @@
 import 'package:get_it/get_it.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
 
 // Core
 import 'core/network/network_info.dart';
-import 'infrastructure/core/database/database_helper.dart';
-import 'infrastructure/core/database/app_database.dart';
+import 'infrastructure/core/storage/in_memory_storage.dart';
 import 'infrastructure/core/dio/dio_provider.dart';
 
 // Auth
@@ -42,24 +40,33 @@ import 'application/favorites/bloc/favorites_bloc.dart';
 final sl = GetIt.instance;
 
 Future<void> init() async {
+  print('🚀 Initializing app dependencies...');
+  
   //! External dependencies
+  print('📦 Setting up external dependencies...');
   final sharedPreferences = await SharedPreferences.getInstance();
   sl.registerLazySingleton(() => sharedPreferences);
   sl.registerLazySingleton(() => InternetConnectionChecker());
   
   //! Core
+  print('⚙️ Setting up core services...');
   sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
   sl.registerLazySingleton(() => DioProvider.createDio());
   
-  //! Database
-  final database = await DatabaseHelper.initDatabase();
-  sl.registerLazySingleton<Database>(() => database);
-  sl.registerLazySingleton(() => AppDatabase());
+  //! In-Memory Storage
+  print('💾 Setting up in-memory storage...');
+  final storage = InMemoryStorage();
+  await storage.init(sharedPreferences);
+  sl.registerLazySingleton(() => storage);
   
   //! Data sources
+  print('🔌 Setting up data sources...');
   // Auth
   sl.registerLazySingleton<AuthLocalDataSource>(
-    () => AuthLocalDataSourceImpl(sl()),
+    () => AuthLocalDataSourceImpl(
+      sharedPreferences: sl(),
+      storage: sl(),
+    ),
   );
   
   // Movies
@@ -73,6 +80,7 @@ Future<void> init() async {
   );
   
   //! Repositories
+  print('🏪 Setting up repositories...');
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(localDataSource: sl()),
   );
@@ -86,6 +94,7 @@ Future<void> init() async {
   );
   
   //! Use cases
+  print('🎯 Setting up use cases...');
   // Auth
   sl.registerLazySingleton(() => LoginUser(sl()));
   sl.registerLazySingleton(() => CreateProfile(sl()));
@@ -103,6 +112,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => CheckFavoriteStatus(sl()));
   
   //! BLoCs
+  print('🔄 Setting up state management...');
   sl.registerFactory(() => AuthBloc(
     loginUser: sl(),
     createProfile: sl(),
@@ -131,4 +141,9 @@ Future<void> init() async {
     getFavorites: sl(),
     checkFavoriteStatus: sl(),
   ));
+  
+  print('✅ All dependencies initialized successfully!');
+  
+  // Debug info
+  storage.printDebugInfo();
 }

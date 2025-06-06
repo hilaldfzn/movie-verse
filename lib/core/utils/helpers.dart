@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../domain/movies/entities/movie.dart';
 
 class AppHelpers {
   // Date formatting
@@ -90,11 +91,11 @@ class AppHelpers {
 
   // Validation helpers
   static bool isValidEmail(String email) {
-    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}).hasMatch(email);
+    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
   }
 
   static bool isValidUsername(String username) {
-    return username.length >= 3 && RegExp(r'^[a-zA-Z0-9_]+).hasMatch(username);
+    return username.length >= 3 && RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(username);
   }
 
   // UI helpers
@@ -151,17 +152,17 @@ class AppHelpers {
   // Share movie helper
   static String generateShareText(Movie movie) {
     return '''
-        🎬 ${movie.title}
+🎬 ${movie.title}
 
-        ⭐ Rating: ${formatRating(movie.voteAverage)}/10
-        📅 Release: ${formatDate(movie.releaseDate)}
+⭐ Rating: ${formatRating(movie.voteAverage)}/10
+📅 Release: ${formatDate(movie.releaseDate)}
 
-        ${truncateText(movie.overview, 150)}
+${truncateText(movie.overview, 150)}
 
-        Check it out: movieapp.com/movie/${movie.id}
+Check it out: movieapp.com/movie/${movie.id}
 
-        #Movies #Cinema #${movie.title.replaceAll(' ', '')}
-    ''';
+#Movies #Cinema #${movie.title.replaceAll(' ', '')}
+''';
   }
 
   // Deep link helpers

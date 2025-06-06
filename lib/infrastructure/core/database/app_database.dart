@@ -17,71 +17,106 @@ class AppDatabase {
   }
 
   Future<Database> get database async {
-    _database ??= await _initDatabase();
-    return _database!;
-  }
-
-  Future<Database> _initDatabase() async {
-    final documentsDirectory = await getDatabasesPath();
-    final path = join(documentsDirectory, _databaseName);
-
-    return await openDatabase(
-      path,
-      version: _databaseVersion,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
-    );
-  }
-
-  Future<void> _onCreate(Database db, int version) async {
-    // Create profiles table
-    await db.execute('''
-      CREATE TABLE profiles (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        avatar TEXT,
-        userId TEXT NOT NULL,
-        createdAt TEXT NOT NULL
-      )
-    ''');
-
-    // Create favorites table
-    await db.execute('''
-      CREATE TABLE favorites (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        movieId INTEGER NOT NULL,
-        title TEXT NOT NULL,
-        posterPath TEXT,
-        overview TEXT,
-        releaseDate TEXT NOT NULL,
-        voteAverage REAL NOT NULL,
-        profileId INTEGER NOT NULL,
-        createdAt TEXT NOT NULL,
-        FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE,
-        UNIQUE(movieId, profileId)
-      )
-    ''');
-
-    // Create indexes for better performance
-    await db.execute('CREATE INDEX idx_profiles_userId ON profiles(userId)');
-    await db.execute('CREATE INDEX idx_favorites_profileId ON favorites(profileId)');
-    await db.execute('CREATE INDEX idx_favorites_movieId ON favorites(movieId)');
-  }
-
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle database schema upgrades here
-    if (oldVersion < 2) {
-      // Example: Add new column
-      // await db.execute('ALTER TABLE profiles ADD COLUMN newColumn TEXT');
+    if (_database != null) return _database!;
+    
+    try {
+      _database = await _initDatabase();
+      return _database!;
+    } catch (e) {
+      print('❌ Error getting database: $e');
+      rethrow;
     }
   }
 
-  // Helper methods for database operations
+  Future<Database> _initDatabase() async {
+    try {
+      print('🔧 Initializing database...');
+      
+      // Get the database path
+      final databasesPath = await getDatabasesPath();
+      final path = join(databasesPath, _databaseName);
+      
+      print('📍 Database path: $path');
+
+      // Open the database
+      final database = await openDatabase(
+        path,
+        version: _databaseVersion,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      );
+      
+      print('✅ Database initialized successfully');
+      return database;
+    } catch (e) {
+      print('❌ Failed to initialize database: $e');
+      throw CacheException('Failed to initialize database: $e');
+    }
+  }
+
+  Future<void> _onCreate(Database db, int version) async {
+    try {
+      print('🏗️ Creating database tables...');
+      
+      // Create profiles table
+      await db.execute('''
+        CREATE TABLE profiles (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          avatar TEXT,
+          userId TEXT NOT NULL,
+          createdAt TEXT NOT NULL
+        )
+      ''');
+
+      // Create favorites table
+      await db.execute('''
+        CREATE TABLE favorites (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          movieId INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          posterPath TEXT,
+          overview TEXT,
+          releaseDate TEXT NOT NULL,
+          voteAverage REAL NOT NULL,
+          profileId INTEGER NOT NULL,
+          createdAt TEXT NOT NULL,
+          FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE,
+          UNIQUE(movieId, profileId)
+        )
+      ''');
+
+      // Create indexes for better performance
+      await db.execute('CREATE INDEX idx_profiles_userId ON profiles(userId)');
+      await db.execute('CREATE INDEX idx_favorites_profileId ON favorites(profileId)');
+      await db.execute('CREATE INDEX idx_favorites_movieId ON favorites(movieId)');
+      
+      print('✅ Database tables created successfully');
+    } catch (e) {
+      print('❌ Failed to create database tables: $e');
+      throw CacheException('Failed to create database tables: $e');
+    }
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    print('📈 Upgrading database from version $oldVersion to $newVersion');
+    
+    if (oldVersion < 2) {
+      // Example migration
+      await db.execute('ALTER TABLE profiles ADD COLUMN newColumn TEXT');
+    }
+  }
+
+  // CRUD Operations
   Future<int> insert(String table, Map<String, dynamic> values) async {
     try {
       final db = await database;
-      return await db.insert(table, values);
+      print('➕ Inserting into $table: $values');
+      final result = await db.insert(table, values);
+      print('✅ Insert successful, ID: $result');
+      return result;
     } catch (e) {
+      print('❌ Failed to insert into $table: $e');
       throw CacheException('Failed to insert into $table: $e');
     }
   }
@@ -100,7 +135,8 @@ class AppDatabase {
   }) async {
     try {
       final db = await database;
-      return await db.query(
+      print('🔍 Querying $table with where: $where, args: $whereArgs');
+      final result = await db.query(
         table,
         distinct: distinct,
         columns: columns,
@@ -112,7 +148,10 @@ class AppDatabase {
         limit: limit,
         offset: offset,
       );
+      print('✅ Query successful, found ${result.length} rows');
+      return result;
     } catch (e) {
+      print('❌ Failed to query $table: $e');
       throw CacheException('Failed to query $table: $e');
     }
   }
@@ -125,8 +164,12 @@ class AppDatabase {
   }) async {
     try {
       final db = await database;
-      return await db.update(table, values, where: where, whereArgs: whereArgs);
+      print('📝 Updating $table: $values where $where');
+      final result = await db.update(table, values, where: where, whereArgs: whereArgs);
+      print('✅ Update successful, affected rows: $result');
+      return result;
     } catch (e) {
+      print('❌ Failed to update $table: $e');
       throw CacheException('Failed to update $table: $e');
     }
   }
@@ -138,9 +181,61 @@ class AppDatabase {
   }) async {
     try {
       final db = await database;
-      return await db.delete(table, where: where, whereArgs: whereArgs);
+      print('🗑️ Deleting from $table where $where');
+      final result = await db.delete(table, where: where, whereArgs: whereArgs);
+      print('✅ Delete successful, affected rows: $result');
+      return result;
     } catch (e) {
+      print('❌ Failed to delete from $table: $e');
       throw CacheException('Failed to delete from $table: $e');
+    }
+  }
+
+  // Utility methods
+  Future<bool> testConnection() async {
+    try {
+      final db = await database;
+      await db.rawQuery('SELECT 1');
+      print('✅ Database connection test successful');
+      return true;
+    } catch (e) {
+      print('❌ Database connection test failed: $e');
+      return false;
+    }
+  }
+
+  Future<void> clearAllData() async {
+    try {
+      final db = await database;
+      await db.transaction((txn) async {
+        await txn.delete('favorites');
+        await txn.delete('profiles');
+      });
+      print('🧹 All data cleared successfully');
+    } catch (e) {
+      print('❌ Failed to clear all data: $e');
+      throw CacheException('Failed to clear all data: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> getDatabaseInfo() async {
+    try {
+      final db = await database;
+      final version = await db.getVersion();
+      final path = db.path;
+      
+      final info = {
+        'version': version,
+        'path': path,
+        'name': _databaseName,
+        'isOpen': db.isOpen,
+      };
+      
+      print('ℹ️ Database info: $info');
+      return info;
+    } catch (e) {
+      print('❌ Failed to get database info: $e');
+      throw CacheException('Failed to get database info: $e');
     }
   }
 
@@ -149,54 +244,7 @@ class AppDatabase {
     if (db != null) {
       await db.close();
       _database = null;
+      print('🔒 Database closed');
     }
-  }
-
-  // Batch operations for better performance
-  Future<void> batch(Function(Batch) operations) async {
-    try {
-      final db = await database;
-      final batch = db.batch();
-      operations(batch);
-      await batch.commit(noResult: true);
-    } catch (e) {
-      throw CacheException('Failed to execute batch operation: $e');
-    }
-  }
-
-  // Transaction support
-  Future<T> transaction<T>(Future<T> Function(Transaction) action) async {
-    try {
-      final db = await database;
-      return await db.transaction(action);
-    } catch (e) {
-      throw CacheException('Failed to execute transaction: $e');
-    }
-  }
-
-  // Clear all data (useful for logout)
-  Future<void> clearAllData() async {
-    try {
-      final db = await database;
-      await db.transaction((txn) async {
-        await txn.delete('favorites');
-        await txn.delete('profiles');
-      });
-    } catch (e) {
-      throw CacheException('Failed to clear all data: $e');
-    }
-  }
-
-  // Get database info
-  Future<Map<String, dynamic>> getDatabaseInfo() async {
-    final db = await database;
-    final version = await db.getVersion();
-    final path = db.path;
-    
-    return {
-      'version': version,
-      'path': path,
-      'name': _databaseName,
-    };
   }
 }

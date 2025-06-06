@@ -28,52 +28,95 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     LoadProfilesEvent event,
     Emitter<ProfileState> emit,
   ) async {
+    print('ProfileBloc: Loading profiles for userId: ${event.userId}'); // Debug log
     emit(ProfileLoading());
     
-    final result = await getProfiles(GetProfilesParams(userId: event.userId));
-    
-    result.fold(
-      (failure) => emit(ProfileError(failure.message)),
-      (profiles) => emit(ProfilesLoaded(profiles)),
-    );
+    try {
+      final result = await getProfiles.call(GetProfilesParams(userId: event.userId));
+      
+      result.fold(
+        (failure) {
+          print('ProfileBloc: Failed to load profiles: ${failure.message}'); // Debug log
+          emit(ProfileError(failure.message));
+        },
+        (profiles) {
+          print('ProfileBloc: Loaded ${profiles.length} profiles'); // Debug log
+          emit(ProfilesLoaded(profiles));
+        },
+      );
+    } catch (e) {
+      print('ProfileBloc: Exception loading profiles: $e'); // Debug log
+      emit(ProfileError('Failed to load profiles: $e'));
+    }
   }
 
   Future<void> _onCreateProfile(
     CreateProfileEvent event,
     Emitter<ProfileState> emit,
   ) async {
+    print('ProfileBloc: Creating profile: ${event.name}'); // Debug log
     emit(ProfileLoading());
     
-    final result = await createProfile(CreateProfileParams(
-      name: event.name,
-      avatar: event.avatar,
-      userId: event.userId,
-    ));
-    
-    result.fold(
-      (failure) => emit(ProfileError(failure.message)),
-      (profile) => emit(ProfileCreated(profile)),
-    );
+    try {
+      final result = await createProfile.call(CreateProfileParams(
+        name: event.name,
+        avatar: event.avatar,
+        userId: event.userId,
+      ));
+      
+      result.fold(
+        (failure) {
+          print('ProfileBloc: Failed to create profile: ${failure.message}'); // Debug log
+          emit(ProfileError(failure.message));
+        },
+        (profile) {
+          print('ProfileBloc: Profile created successfully: ${profile.name}'); // Debug log
+          emit(ProfileCreated(profile));
+        },
+      );
+    } catch (e) {
+      print('ProfileBloc: Exception creating profile: $e'); // Debug log
+      emit(ProfileError('Failed to create profile: $e'));
+    }
   }
 
   Future<void> _onSelectProfile(
     SelectProfileEvent event,
     Emitter<ProfileState> emit,
   ) async {
+    print('ProfileBloc: Selecting profile: ${event.profileId}'); // Debug log
     emit(ProfileLoading());
     
-    final result = await authRepository.selectProfile(event.profileId);
-    
-    result.fold(
-      (failure) => emit(ProfileError(failure.message)),
-      (_) async {
-        final profileResult = await authRepository.getCurrentProfile();
-        profileResult.fold(
-          (failure) => emit(ProfileError(failure.message)),
-          (profile) => emit(ProfileSelected(profile!)),
-        );
-      },
-    );
+    try {
+      final result = await authRepository.selectProfile(event.profileId);
+      
+      result.fold(
+        (failure) {
+          print('ProfileBloc: Failed to select profile: ${failure.message}'); // Debug log
+          emit(ProfileError(failure.message));
+        },
+        (_) async {
+          final profileResult = await authRepository.getCurrentProfile();
+          profileResult.fold(
+            (failure) {
+              print('ProfileBloc: Failed to get current profile: ${failure.message}'); // Debug log
+              emit(ProfileError(failure.message));
+            },
+            (profile) {
+              if (profile != null) {
+                print('ProfileBloc: Profile selected successfully: ${profile.name}'); // Debug log
+                emit(ProfileSelected(profile));
+              } else {
+                emit(ProfileError('Selected profile not found'));
+              }
+            },
+          );
+        },
+      );
+    } catch (e) {
+      print('ProfileBloc: Exception selecting profile: $e'); // Debug log
+      emit(ProfileError('Failed to select profile: $e'));
+    }
   }
 
   Future<void> _onDeleteProfile(

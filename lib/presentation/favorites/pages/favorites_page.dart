@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../application/favorites/bloc/favorites_bloc.dart';
-import '../../../application/auth/profile/bloc/profile_bloc.dart';
+import '../../../application/auth/profile/bloc/profile_bloc.dart' as profile_bloc;
 import '../../../core/constants/route_constants.dart';
 import '../widgets/favorite_movie_card.dart';
 
@@ -21,8 +21,8 @@ class _FavoritesPageState extends State<FavoritesPage> {
   }
 
   void _loadFavorites() {
-    final profileState = context.read<ProfileBloc>().state;
-    if (profileState is ProfileSelected) {
+    final profileState = context.read<profile_bloc.ProfileBloc>().state;
+    if (profileState is profile_bloc.ProfileSelected) {
       context.read<FavoritesBloc>().add(
         LoadFavoritesEvent(profileState.profile.id!),
       );
@@ -120,8 +120,8 @@ class _FavoritesPageState extends State<FavoritesPage> {
   }
 
   void _removeFavorite(int movieId) {
-    final profileState = context.read<ProfileBloc>().state;
-    if (profileState is ProfileSelected) {
+    final profileState = context.read<profile_bloc.ProfileBloc>().state;
+    if (profileState is profile_bloc.ProfileSelected) {
       context.read<FavoritesBloc>().add(RemoveFromFavoritesEvent(
         movieId: movieId,
         profileId: profileState.profile.id!,

@@ -31,7 +31,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(AuthLoading());
     
-    final result = await loginUser(event.username, event.password);
+    final result = await loginUser.call(LoginParams(
+      username: event.username,
+      password: event.password,
+    ));
     
     result.fold(
       (failure) => emit(AuthError(failure.message)),
@@ -45,7 +48,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(AuthLoading());
     
-    final result = await createProfile(event.name, event.avatar, event.userId);
+    final result = await createProfile.call(CreateProfileParams(
+      name: event.name,
+      avatar: event.avatar,
+      userId: event.userId,
+    ));
     
     result.fold(
       (failure) => emit(AuthError(failure.message)),
@@ -59,7 +66,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(AuthLoading());
     
-    final result = await getProfiles(event.userId);
+    final result = await getProfiles.call(GetProfilesParams(userId: event.userId));
     
     result.fold(
       (failure) => emit(AuthError(failure.message)),

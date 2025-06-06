@@ -4,7 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../application/movies/bloc/movie_bloc.dart';
 import '../../../application/favorites/bloc/favorites_bloc.dart';
-import '../../../application/auth/profile/bloc/profile_bloc.dart';
+import '../../../application/auth/profile/bloc/profile_bloc.dart' as profile_bloc;
 import '../../../core/utils/helpers.dart';
 import '../../../domain/movies/entities/movie.dart';
 
@@ -29,8 +29,8 @@ class _MovieDetailPageState extends State<MovieDetailPage> {
   }
 
   void _getCurrentProfile() {
-    final profileState = context.read<ProfileBloc>().state;
-    if (profileState is ProfileSelected) {
+    final profileState = context.read<profile_bloc.ProfileBloc>().state;
+    if (profileState is profile_bloc.ProfileSelected) {
       _currentProfileId = profileState.profile.id;
       _checkFavoriteStatus();
     }
